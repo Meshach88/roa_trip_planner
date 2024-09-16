@@ -1,10 +1,10 @@
-import './bootstrap';
-import { createApp } from 'vue';
-import TripPlanner from './components/TripPlanner.vue';
+import "./bootstrap";
+import { createApp } from "vue";
+import TripPlanner from "./components/TripPlanner.vue";
+import MapView from "./components/MapView.vue";
 
-createApp(TripPlanner).mount("#app")
-
-
+createApp(TripPlanner).mount("#app");
+createApp(MapView).mount("#map");
 
 // const app = createApp({
 //     components: {
