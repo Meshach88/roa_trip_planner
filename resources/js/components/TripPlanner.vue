@@ -1,39 +1,51 @@
 <template>
-  <div class="trip-planner">
-    <h1>Road Trip Planner</h1>
+  <div class="trip-planner max-w-lg mx-auto p-6 bg-white rounded-lg shadow-md">
+
+    <h1 class="text-blue-950 font-bold text-center mb-5 text-xl">Road Trip Planner</h1>
 
     <!-- Add Destination Form -->
-    <form @submit.prevent="addDestination">
-      <input type="text" v-model="newDestination.name" placeholder="Destination name" required />
-      <input type="number" v-model="newDestination.latitude" placeholder="Latitude" required />
-      <input type="number" v-model="newDestination.longitude" placeholder="Longitude" required />
-      <button type="submit">Add Destination</button>
-    </form>
+    <div>
+      <form @submit.prevent="addDestination" class="space-y-4">
+        <input type="text" v-model="newDestination.name" placeholder="Destination name" required
+          class="w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        <input type="number" v-model="newDestination.latitude" step="0.001" placeholder="Latitude" required
+          class="w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        <input type="number" v-model="newDestination.longitude" step="0.001" placeholder="Longitude" required
+          class="w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        <button type="submit"
+          class="w-full text-white bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded-md text-sm font-semibold">Add
+          Destination</button>
+      </form>
+    </div>
 
-     <!-- Map Component -->
-     <MapView :destinations="destinations" @add-destination="addDestinationFromMap" />
+    <!-- Map Component -->
+    <div class="h-full w-full">
+      <MapView :destinations="destinations" @add-destination="addDestinationFromMap" class="my-6" />
+    </div>
 
     <!-- Destination List -->
-    <ul>
-      <li v-for="(destination, index) in destinations" :key="destination.id">
-        <div>
-          <strong>{{ destination.name }}</strong> (Lat: {{ destination.latitude }}, Lng: {{ destination.longitude }})
-          <button @click="removeDestination(index)">Remove</button>
+    <ul class="divide-y divide-gray-200">
+      <li v-for="(destination, index) in destinations" :key="destination.id" class="py-4">
+        <div class="flex justify-between items-center">
+          <span>
+            <strong>{{ destination.name }}</strong> (Lat: {{ destination.latitude }}, Lng: {{ destination.longitude }})
+          </span>
+          <button @click="removeDestination(index)" class="text-sm text-red-600 hover:text-red-800">Remove</button>
         </div>
       </li>
     </ul>
 
     <!-- Recalculate Journey -->
-    <button @click="recalculateJourney">Recalculate Journey</button>
+    <button @click="recalculateJourney"
+      class="mt-6 w-full text-white bg-green-500 hover:bg-green-600 px-4 py-2 rounded-md font-semibold">Recalculate
+      Journey</button>
 
     <!-- Journey Summary -->
-    <div v-if="totalDistance || totalTime">
-      <h2>Journey Summary</h2>
+    <div v-if="totalDistance || totalTime" class="mt-6">
+      <h2 class="text-lg font-semibold">Journey Summary</h2>
       <p>Total Distance: {{ totalDistance }}</p>
       <p>Total Time: {{ totalTime }}</p>
     </div>
-
-    
   </div>
 </template>
 
@@ -59,88 +71,113 @@ export default {
     };
   },
   methods: {
-    //Add destination manually from the form
     addDestination() {
       axios.post('/api/destinations', this.newDestination)
         .then(response => {
-          //Push the newly created destination into the destinations array
           this.destinations.push(response.data);
-
-          //Save to local storage for persistence
           this.saveToLocalStorage();
-
-          //Reset the form fields after adding the destination
           this.resetForm();
         })
         .catch(error => {
           console.error('Error adding destination:', error);
         });
     },
-
-    //Add destination from map click
     addDestinationFromMap(destination) {
+      // destination.id = Date.now();  //Assign a unique ID based on the current timestamp
       this.destinations.push(destination);
       this.saveToLocalStorage();
     },
-
-    //Remove destination
     removeDestination(index) {
       const destinationId = this.destinations[index].id;
-      axios.delete(`/api/destinations/${destinationId}`)
-        .then(() => {
-          //Remove the destination from the local array
-          this.destinations.splice(index, 1);
-
-          //Update local storage after removal
-          this.saveToLocalStorage();
-        })
-        .catch(error => {
-          console.error('Error removing destination:', error);
-        });
+      if (destinationId) {
+        axios.delete(`/api/destinations/${destinationId}`)
+          .then(() => {
+            this.destinations.splice(index, 1); // Remove destination from the array
+            this.saveToLocalStorage(); // Update local storage after removal
+          })
+          .catch(error => {
+            console.error('Error removing destination:', error);
+          });
+      } else {
+        // If the destination has no id (for those added from map click), just remove it
+        this.destinations.splice(index, 1); // Remove destination from the array
+        this.saveToLocalStorage(); // Update local storage after removal
+      }
     },
     recalculateJourney() {
       if (this.destinations.length < 2) {
         console.error('Need at least two destinations to calculate journey.');
         return;
       }
-
-
-      //Extract waypoints (all destinations except the first and last)
       const waypoints = this.destinations.slice(1, -1).map(destination => ({
         location: { lat: destination.latitude, lng: destination.longitude },
         stopover: true,
       }));
+      const coord1 = this.destinations[0]
+      const coord2 = this.destinations[1]
+      // axios.post('/api/calculate-distance-time', {
+      //   origin: this.destinations[0].name,
+      //   destination: this.destinations[this.destinations.length - 1].name,
+      //   waypoints: waypoints.map(wp => `${wp.location.lat},${wp.location.lng}`),
+      // })
+      //   .then(response => {
+      //     this.totalDistance = response.data.distance;
+      //     this.totalTime = response.data.duration;
+      //   })
+      //   .catch(error => {
+      //     console.error('Error recalculating journey:', error);
+      //   });
 
-      //Send the API request with origin, destination and waypoints
-      axios.post('/api/calculate-distance-time', {
-        origin: this.destinations[0].name,
-        destination: this.destinations[this.destinations.length - 1].name,
-        waypoints: waypoints.map(wp => `${wp.location.lat},${wp.location.lng}`),
+      //Get coordinates for Addresses
+      axios.get('https://nominatim.openstreetmap.org/search', {
+        params: {
+          q: 'Lagos', // The address or location name
+          format: 'json'
+        }
       })
         .then(response => {
-          //Set the total distance and time from the response data
-          this.totalDistance = response.data.distance;
-          this.totalTime = response.data.duration;
+          const { lat, lon } = response.data[0]; // Get latitude and longitude from response
+          console.log(lat, lon);
+          coord2.latitude = lat;
+          coord2.longitude = lon;
+
         })
         .catch(error => {
-          console.error('Error recalculating journey:', error);
+          console.error('Error fetching coordinates:', error);
         });
-    },
 
-    //Save the destination data in the browser's local storage
+      //Calculate routes
+      axios.get('/proxy-osrm', {
+        params: {
+          lat1: coord1.latitude,
+          lng1: coord1.longitude,
+          lat2: coord2.latitude,
+          lng2: coord2.longitude
+        }
+      })
+        .then(response => {
+          const route = response.data.routes[0];
+          const totalDistance = (route.distance / 1000).toFixed(2); // in kilometers
+          const totalTime = (route.duration / 3600).toFixed(2); // in hours
+
+          this.totalDistance = totalDistance + ' km';
+          this.totalTime = totalTime + ' hours';
+        })
+        .catch(error => {
+          console.error('Error fetching route:', error);
+        });
+
+
+    },
     saveToLocalStorage() {
       localStorage.setItem('destinations', JSON.stringify(this.destinations));
     },
-
-    //reset form fields
     resetForm() {
       this.newDestination.name = '';
       this.newDestination.latitude = null;
       this.newDestination.longitude = null;
     }
   },
-
-  //Load destination from local storage when component mounts
   mounted() {
     const savedDestinations = localStorage.getItem('destinations');
     if (savedDestinations) {
@@ -150,54 +187,12 @@ export default {
 };
 </script>
 
-<style>
+<style scoped>
 .trip-planner {
-  font-family: Arial, sans-serif;
-  margin: 0 auto;
-  max-width: 600px;
-  padding: 20px;
+  font-family: 'Arial', sans-serif;
 }
 
-form {
-  margin-bottom: 20px;
-}
-
-input {
-  margin-right: 10px;
-  padding: 5px;
-}
-
-button {
-  padding: 5px 10px;
-  background-color: #007bff;
-  color: white;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-}
-
-button:hover {
-  background-color: #0056b3;
-}
-
-ul {
-  list-style-type: none;
-  padding: 0;
-}
-
-li {
-  margin-bottom: 10px;
-}
-
-.map {
-  margin-top: 20px;
-  padding: 20px;
-  border: 1px solid #ccc;
-  text-align: center;
-}
-
-h1,
-h2 {
-  color: #007bff;
+#map {
+  height: 100%
 }
 </style>
