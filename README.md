@@ -10,12 +10,12 @@ The Road Trip Planner is a web application that allows users to add, view, and m
 - View destinations on an interactive map
 - Remove destinations
 - Calculate journey distance and time
-- Clear saved data from local storage
+- Save data in browser's local storage
 
 ## Tech Stack
 
 - **Frontend:** Vue.js, Tailwind CSS, Leaflet
-- **Backend:** Laravel (for API endpoints, if applicable)
+- **Backend:** Laravel (for API endpoints)
 
 ## Prerequisites
 
@@ -40,6 +40,6 @@ Ensure you have the following installed on your local machine:
 3. run **composer install** to install php dependencies
 4. Copy the .env.example file to .env and configure your database settings: cp .env.example .env
 5. Run migrations with **php artisan migrate**
-6. Install **Herd** and copy the application folder into the Herd directory. Then start up **Herd**
+6. Install **Herd** and copy the application folder (rtp) into the Herd directory. Then start up **Herd**
 7. Start your Apache server and get MySQL running using XAMPP control panel
 8. The application will be running on rtp.test on your browser.

@@ -24,16 +24,20 @@
     </div>
 
     <!-- Destination List -->
-    <ul class="divide-y divide-gray-200">
-      <li v-for="(destination, index) in destinations" :key="destination.id" class="py-4">
-        <div class="flex justify-between items-center">
-          <span>
-            <strong>{{ destination.name }}</strong> (Lat: {{ destination.latitude }}, Lng: {{ destination.longitude }})
-          </span>
-          <button @click="removeDestination(index)" class="text-sm text-red-600 hover:text-red-800">Remove</button>
-        </div>
-      </li>
-    </ul>
+    <draggable v-model="destinations" @end="recalculateJourney">
+      <ul class="divide-y divide-gray-200">
+
+        <li v-for="(destination, index) in destinations" :key="destination.id" class="py-4">
+          <div class="flex justify-between items-center">
+            <span>
+              <strong>{{ destination.name }}</strong> (Lat: {{ destination.latitude }}, Lng: {{ destination.longitude
+              }})
+            </span>
+            <button @click="removeDestination(index)" class="text-sm text-red-600 hover:text-red-800">Remove</button>
+          </div>
+        </li>
+      </ul>
+    </draggable>
 
     <!-- Recalculate Journey -->
     <button @click="recalculateJourney"
@@ -52,6 +56,7 @@
 <script>
 import MapView from './MapView.vue';
 import axios from 'axios';
+import draggable from 'vuedraggable';
 
 export default {
   name: 'TripPlanner',
