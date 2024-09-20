@@ -16,6 +16,7 @@ export default {
   data() {
     return {
       map: null,  // Reference to the map
+      markers: {},  //Object to store marker references by destination id
     };
   },
   mounted() {
@@ -30,8 +31,11 @@ export default {
     });
   },
   watch: {
-    destinations() {
-      this.addMarkers(); // Update markers if destinations change
+    destinations: {
+      handler() {
+        this.addMarkers(); // Update markers if destinations change
+      },
+      deep: true, // Watch for deep changes in destinations array
     },
   },
   methods: {
@@ -52,7 +56,7 @@ export default {
           '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       }).addTo(this.map);
     },
-    
+
     addMarkers() {
       if (this.map) {
         // Clear previous markers
@@ -64,28 +68,71 @@ export default {
 
         // Add new markers for each destination
         this.destinations.forEach((destination) => {
-          L.marker([destination.latitude, destination.longitude])
+          // Skip if marker already exists for this destination
+          if (this.markers[destination.id]) return;
+
+          const marker = L.marker([destination.latitude, destination.longitude])
             .addTo(this.map)
             .bindPopup(destination.name);
+
+          // Store marker reference using destination ID
+          this.markers[destination.id] = marker;
         });
+        this.map.dragging.enable();
+        this.map.scrollWheelZoom.enable();
       }
     },
 
+
     enableClickToAddMarker() {
       // Add a click event listener to the map
-      this.map.on('click', (e) => {
+      this.map.on('click', async (e) => {
         const { lat, lng } = e.latlng;
 
-        // Add a marker at the clicked location
-        const marker = L.marker([lat, lng]).addTo(this.map);
+        try {
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`
+          );
 
-        // Optionally bind a popup to the marker
-        marker.bindPopup(`Lat: ${lat}, Lng: ${lng}`).openPopup();
+          if (!response.ok) {
+            throw new Error('Failed to fetch location name');
+          }
+          const data = await response.json();
 
-        // Emit an event to inform the parent component of the new destination
-        this.$emit('add-destination', { latitude: lat, longitude: lng, name: `New Location` });
+          const name = data.display_name || "New Location";
+
+          // Add a marker at the clicked location
+          const marker = L.marker([lat, lng]).addTo(this.map);
+
+          // Optionally bind a popup to the marker
+          marker.bindPopup(`Name: ${name}, Lat: ${lat.toFixed(2)}, Lng: ${lng.toFixed(2)}`).openPopup();
+
+          // Emit an event to inform the parent component of the new destination
+          this.$emit('add-destination', { latitude: lat, longitude: lng, name });
+        } catch (error) {
+          console.error('Error getting location name:', error);
+        }
       });
-    }
+    },
+    clearOldMarkers() {
+      // Remove markers that are no longer in the destinations array
+      Object.keys(this.markers).forEach((id) => {
+        const destinationExists = this.destinations.find(dest => dest.id === id);
+        if (!destinationExists) {
+          // Remove marker from the map and delete from markers object
+          this.map.removeLayer(this.markers[id]);
+          delete this.markers[id];
+        }
+      });
+    },
+
+    removeMarkerById(id) {
+      // Remove marker for a specific destination ID
+      if (this.markers[id]) {
+        this.map.removeLayer(this.markers[id]);
+        delete this.markers[id]; // Remove from markers object
+      }
+    },
   },
   beforeUnmount() {
     if (this.map) {

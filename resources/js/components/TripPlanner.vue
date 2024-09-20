@@ -18,27 +18,30 @@
       </form>
     </div>
 
-    <!-- Map Component -->
-    <div class="h-full w-full">
-      <MapView :destinations="destinations" @add-destination="addDestinationFromMap" class="my-6" />
-    </div>
 
     <!-- Destination List -->
-    <draggable v-model="destinations" @end="recalculateJourney">
-      <ul class="divide-y divide-gray-200">
-
-        <li v-for="(destination, index) in destinations" :key="destination.id" class="py-4">
-          <div class="flex justify-between items-center">
-            <span>
-              <strong>{{ destination.name }}</strong> (Lat: {{ destination.latitude }}, Lng: {{ destination.longitude
-              }})
-            </span>
-            <button @click="removeDestination(index)" class="text-sm text-red-600 hover:text-red-800">Remove</button>
-          </div>
-        </li>
-      </ul>
+    <draggable v-model="destinations" tag="ul" @end="recalculateJourney" :itemKey="element => element.id">
+      <template #item="{ element: destination, index }">
+        <ul class="divide-y divide-gray-200">
+          <li class="py-4">
+            <div class="flex justify-between items-center">
+              <p class="font-bold">
+                {{ destination.name }}
+                <!-- (Lat: {{ destination.latitude }}, Lng: {{ destination.longitude
+                }}) -->
+              </p>
+              <button @click="removeDestination(index)" class="text-sm text-red-400 hover:text-red-800">Remove</button>
+            </div>
+          </li>
+        </ul>
+      </template>
     </draggable>
 
+    <!-- Map Component -->
+    <h2 class="text-center font-bold text-base mt-6 text-blue-500">Map</h2>
+    <div class="h-full w-full">
+      <MapView :destinations="destinations" ref="mapView" @add-destination="addDestinationFromMap" class="my-3" />
+    </div>
     <!-- Recalculate Journey -->
     <button @click="recalculateJourney"
       class="mt-6 w-full text-white bg-green-500 hover:bg-green-600 px-4 py-2 rounded-md font-semibold">Recalculate
@@ -57,10 +60,13 @@
 import MapView from './MapView.vue';
 import axios from 'axios';
 import draggable from 'vuedraggable';
+import { ref } from 'vue';
+
 
 export default {
   name: 'TripPlanner',
   components: {
+    draggable,
     MapView,
   },
   data() {
@@ -74,6 +80,7 @@ export default {
       totalDistance: '',
       totalTime: '',
     };
+    // const destination = ref(destination);
   },
   methods: {
     addDestination() {
@@ -110,70 +117,43 @@ export default {
       }
     },
     recalculateJourney() {
+      console.log(this.destinations);
+
       if (this.destinations.length < 2) {
         console.error('Need at least two destinations to calculate journey.');
         return;
       }
-      const waypoints = this.destinations.slice(1, -1).map(destination => ({
-        location: { lat: destination.latitude, lng: destination.longitude },
-        stopover: true,
-      }));
-      const coord1 = this.destinations[0]
-      const coord2 = this.destinations[1]
-      // axios.post('/api/calculate-distance-time', {
-      //   origin: this.destinations[0].name,
-      //   destination: this.destinations[this.destinations.length - 1].name,
-      //   waypoints: waypoints.map(wp => `${wp.location.lat},${wp.location.lng}`),
-      // })
-      //   .then(response => {
-      //     this.totalDistance = response.data.distance;
-      //     this.totalTime = response.data.duration;
-      //   })
-      //   .catch(error => {
-      //     console.error('Error recalculating journey:', error);
-      //   });
 
-      //Get coordinates for Addresses
-      axios.get('https://nominatim.openstreetmap.org/search', {
-        params: {
-          q: 'Lagos', // The address or location name
-          format: 'json'
-        }
-      })
-        .then(response => {
-          const { lat, lon } = response.data[0]; // Get latitude and longitude from response
-          console.log(lat, lon);
-          coord2.latitude = lat;
-          coord2.longitude = lon;
+      const start = this.destinations[0];
+      const end = this.destinations[this.destinations.length - 1];
 
-        })
-        .catch(error => {
-          console.error('Error fetching coordinates:', error);
-        });
+      // Waypoints are the destinations between the first and last
+      const waypoints = this.destinations.slice(1, -1).map(destination => `${destination.longitude},${destination.latitude}`);
 
-      //Calculate routes
-      axios.get('/proxy-osrm', {
-        params: {
-          lat1: coord1.latitude,
-          lng1: coord1.longitude,
-          lat2: coord2.latitude,
-          lng2: coord2.longitude
-        }
-      })
+      // Construct the URL for OSRM API, including waypoints
+      const osrmUrl = `http://router.project-osrm.org/route/v1/driving/${start.longitude},${start.latitude};${waypoints.join(';')};${end.longitude},${end.latitude}?overview=true&geometries=geojson`;
+
+      // Fetch the route from OSRM
+      axios.get(osrmUrl)
         .then(response => {
           const route = response.data.routes[0];
+
+          const routeCoordinates = route.geometry.coordinates.map(coord => [coord[1], coord[0]]); // Swap lat/lng order for Leaflet
+
+          // Draw the route on the map
+          L.polyline(routeCoordinates, { color: 'blue' }).addTo(this.map);
           const totalDistance = (route.distance / 1000).toFixed(2); // in kilometers
           const totalTime = (route.duration / 3600).toFixed(2); // in hours
 
+          // Update the distance and time in your component's data
           this.totalDistance = totalDistance + ' km';
           this.totalTime = totalTime + ' hours';
         })
         .catch(error => {
           console.error('Error fetching route:', error);
         });
-
-
     },
+
     saveToLocalStorage() {
       localStorage.setItem('destinations', JSON.stringify(this.destinations));
     },
