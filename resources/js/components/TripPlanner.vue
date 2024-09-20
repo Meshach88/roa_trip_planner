@@ -124,30 +124,33 @@ export default {
         return;
       }
 
-      const start = this.destinations[0];
-      const end = this.destinations[this.destinations.length - 1];
+      // Construct waypoints query proxy server
+      const coordinates = this.destinations.map(destination => ({
+        lat: destination.latitude,
+        lng: destination.longitude
+      }));
 
-      // Waypoints are the destinations between the first and last
-      const waypoints = this.destinations.slice(1, -1).map(destination => `${destination.longitude},${destination.latitude}`);
-
-      // Construct the URL for OSRM API, including waypoints
-      const osrmUrl = `http://router.project-osrm.org/route/v1/driving/${start.longitude},${start.latitude};${waypoints.join(';')};${end.longitude},${end.latitude}?overview=true&geometries=geojson`;
-
-      // Fetch the route from OSRM
-      axios.get(osrmUrl)
+      // Send a request to proxy server
+      axios.post('https://rtp-proxy-server.onrender.com/proxy-osrm', { waypoints: coordinates })
         .then(response => {
           const route = response.data.routes[0];
 
           const routeCoordinates = route.geometry.coordinates.map(coord => [coord[1], coord[0]]); // Swap lat/lng order for Leaflet
 
           // Draw the route on the map
-          L.polyline(routeCoordinates, { color: 'blue' }).addTo(this.map);
+          if(this.map){
+            L.polyline(routeCoordinates, { color: 'blue' }).addTo(this.map);
+          }
+
+
           const totalDistance = (route.distance / 1000).toFixed(2); // in kilometers
           const totalTime = (route.duration / 3600).toFixed(2); // in hours
 
-          // Update the distance and time in your component's data
           this.totalDistance = totalDistance + ' km';
           this.totalTime = totalTime + ' hours';
+
+          // Display the full route
+          // console.log('Route geometry:', route.geometry.coordinates);
         })
         .catch(error => {
           console.error('Error fetching route:', error);
